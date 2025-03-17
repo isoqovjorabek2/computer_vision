@@ -1,25 +1,26 @@
-import joblib
-import tensorflow as tf
-import numpy as np
-import cv2
+from flask import Flask, render_template, request
+from model import load_model, predict
 import os
 
-MODEL_PATH = 'model.joblib'
+app = Flask(__name__)
+model = load_model()
 
-def load_model():
-    if os.path.exists(MODEL_PATH):
-        model = joblib.load(MODEL_PATH)
-    else:
-        model = tf.keras.applications.MobileNetV2(weights='imagenet')
-        joblib.dump(model, MODEL_PATH)
-    return model
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-def predict(image_path, model):
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = cv2.resize(image, (224, 224))
-    image = np.expand_dims(image, axis=0)
-    image = tf.keras.applications.mobilenet_v2.preprocess_input(image)
-    predictions = model.predict(image)
-    decoded_predictions = tf.keras.applications.mobilenet_v2.decode_predictions(predictions, top=1)
-    return decoded_predictions[0][0][1]  # Return the name of the predicted class
+@app.route('/predict', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        return 'No file part'
+    file = request.files['file']
+    if file.filename == '':
+        return 'No selected file'
+    if file:
+        filepath = os.path.join('images', file.filename)
+        file.save(filepath)
+        prediction = predict(filepath, model)
+        return prediction
+
+if __name__ == '__main__':
+    app.run(debug=True)
